@@ -124,16 +124,27 @@ def normalize(text):
 def find_stage(client, stage_name, pipeline_id=None):
     pipelines = client.get_all("leads/pipelines", "pipelines")
     target = normalize(stage_name)
-    matches = []
-    for pipeline in pipelines:
-        for status in pipeline.get("_embedded", {}).get("statuses", []):
-            if normalize(status.get("name")) == target:
-                matches.append({
-                    "pipeline_id": pipeline["id"],
-                    "pipeline_name": pipeline.get("name"),
-                    "status_id": status["id"],
-                    "status_name": status.get("name"),
-                })
+
+    def collect(predicate):
+        return [
+            {
+                "pipeline_id": pipeline["id"],
+                "pipeline_name": pipeline.get("name"),
+                "status_id": status["id"],
+                "status_name": status.get("name"),
+            }
+            for pipeline in pipelines
+            for status in pipeline.get("_embedded", {}).get("statuses", [])
+            if predicate(normalize(status.get("name")))
+        ]
+
+    # Primero coincidencia exacta (sin mayúsculas/acentos); si no hay, la etapa que la contenga
+    # (p. ej. "Negociación" -> "EN NEGOCIACION").
+    matches = collect(lambda name: name == target)
+    if not matches:
+        matches = collect(lambda name: target in name)
+        if matches:
+            print(f"No hay una etapa llamada exactamente '{stage_name}'; se usan las que la contienen.")
 
     print(f"Pipelines encontrados: {len(pipelines)}")
     if not matches:
