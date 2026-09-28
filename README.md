@@ -20,6 +20,13 @@ KOMMO_SUBDOMAIN=tu_subdominio
 KOMMO_TOKEN=tu_token_de_larga_duracion
 ```
 
+## Instalación en Windows para la app Claude de escritorio
+
+1. Instalar Python desde https://www.python.org/downloads/ (marcar "Add python.exe to PATH").
+2. Poner en esta carpeta el archivo `.env` (o `.env.txt`) con las credenciales.
+3. Hacer doble clic en `instalar_windows.bat`.
+4. Cerrar por completo la app Claude (desde el ícono junto al reloj) y volver a abrirla.
+
 ## Servidor MCP
 
 Herramientas: `listar_pipelines`, `buscar_leads`, `contar_leads`, `ver_lead`, `ver_contacto`.
