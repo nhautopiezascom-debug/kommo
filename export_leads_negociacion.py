@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exporta a CSV los leads de la etapa "Negociación" creados en los últimos N días.
+"""Exporta a CSV los leads de la etapa "EN NEGOCIACION" creados en los últimos N días.
 
 Solo lectura: únicamente hace pedidos GET a la API v4 de Kommo.
 
@@ -7,7 +7,7 @@ Credenciales (desde .env): KOMMO_SUBDOMAIN y KOMMO_TOKEN (también se aceptan en
 El token nunca se imprime ni se escribe en archivos/logs.
 
 Uso:
-    python export_leads_negociacion.py [--stage "Negociación"] [--days 30]
+    python export_leads_negociacion.py [--stage "EN NEGOCIACION"] [--days 30]
                                        [--pipeline-id ID] [--output leads_negociacion.csv]
 """
 import argparse
@@ -233,7 +233,7 @@ def main_contact_id(lead):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--stage", default="Negociación", help="Nombre de la etapa (default: Negociación)")
+    parser.add_argument("--stage", default="EN NEGOCIACION", help="Nombre de la etapa (default: EN NEGOCIACION)")
     parser.add_argument("--days", type=int, default=30, help="Antigüedad máxima en días (default: 30)")
     parser.add_argument("--pipeline-id", type=int, help="Pipeline a usar si la etapa existe en varios")
     parser.add_argument("--output", default="leads_negociacion.csv", help="Archivo CSV de salida")
