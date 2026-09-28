@@ -12,19 +12,12 @@ Uso:
 """
 import argparse
 import csv
-import os
 import sys
-import time
-import unicodedata
 from datetime import datetime, timedelta, timezone
 
-import requests
-from dotenv import dotenv_values, load_dotenv
+from kommo_client import PAGE_LIMIT, KommoClient, normalize
+from kommo_client import load_credentials as _load_credentials
 
-PAGE_LIMIT = 250          # máximo permitido por la API v4 para "limit"
-MAX_RPS = 7               # límite de Kommo: 7 pedidos por segundo por cuenta
-MIN_INTERVAL = 1.0 / (MAX_RPS - 2)  # margen de seguridad: ~5 req/s
-MAX_RETRIES = 5
 CONTACT_BATCH = 50        # IDs de contacto por pedido (filter[id][])
 
 CSV_COLUMNS = [
@@ -34,91 +27,10 @@ CSV_COLUMNS = [
 
 
 def load_credentials():
-    load_dotenv()
-    values = {k.upper(): v for k, v in dotenv_values(".env").items() if v}
-    subdomain = os.getenv("KOMMO_SUBDOMAIN") or values.get("KOMMO_SUBDOMAIN")
-    token = os.getenv("KOMMO_TOKEN") or values.get("KOMMO_TOKEN")
-    if not subdomain or not token:
-        sys.exit("Faltan KOMMO_SUBDOMAIN y/o KOMMO_TOKEN en .env")
-    # Acepta tanto "miempresa" como "miempresa.kommo.com" o una URL completa.
-    subdomain = subdomain.strip().removeprefix("https://").removeprefix("http://")
-    subdomain = subdomain.split(".kommo.com")[0].strip("/")
-    return subdomain, token.strip()
-
-
-class KommoClient:
-    """Cliente mínimo de solo lectura con rate limiting y reintentos."""
-
-    def __init__(self, subdomain, token):
-        self.base_url = f"https://{subdomain}.kommo.com/api/v4"
-        self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/json",
-        })
-        self._last_call = 0.0
-        self.calls = 0
-
-    def _throttle(self):
-        wait = MIN_INTERVAL - (time.monotonic() - self._last_call)
-        if wait > 0:
-            time.sleep(wait)
-        self._last_call = time.monotonic()
-
-    def get(self, path_or_url, params=None):
-        """GET con reintentos. Devuelve el JSON, o None si la API responde 204 (sin datos)."""
-        url = path_or_url if path_or_url.startswith("http") else f"{self.base_url}/{path_or_url.lstrip('/')}"
-        for attempt in range(1, MAX_RETRIES + 1):
-            self._throttle()
-            self.calls += 1
-            try:
-                resp = self.session.get(url, params=params, timeout=30)
-            except requests.RequestException as exc:
-                if attempt == MAX_RETRIES:
-                    raise
-                wait = 2 ** attempt
-                print(f"  Error de red ({type(exc).__name__}); reintento en {wait}s...", file=sys.stderr)
-                time.sleep(wait)
-                continue
-
-            if resp.status_code == 204:
-                return None
-            if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt == MAX_RETRIES:
-                    break
-                retry_after = resp.headers.get("Retry-After")
-                wait = int(retry_after) if retry_after and retry_after.isdigit() else 2 ** attempt
-                print(f"  HTTP {resp.status_code}; reintento {attempt}/{MAX_RETRIES - 1} en {wait}s...",
-                      file=sys.stderr)
-                time.sleep(wait)
-                continue
-            if resp.ok:
-                return resp.json()
-            break
-
-        # Error definitivo: mostrar la respuesta de la API (nunca el token ni los headers del pedido).
-        raise RuntimeError(f"GET {resp.request.path_url} -> HTTP {resp.status_code}: {resp.text[:1000]}")
-
-    def get_all(self, path, embedded_key, params=None):
-        """Recorre todas las páginas siguiendo _links.next y devuelve la lista completa."""
-        params = dict(params or {})
-        params.setdefault("limit", PAGE_LIMIT)
-        params.setdefault("page", 1)
-        items = []
-        data = self.get(path, params)
-        while data:
-            items.extend(data.get("_embedded", {}).get(embedded_key, []))
-            next_url = data.get("_links", {}).get("next", {}).get("href")
-            if not next_url:
-                break
-            # _links.next ya incluye todos los parámetros (filtros, page, limit).
-            data = self.get(next_url)
-        return items
-
-
-def normalize(text):
-    text = unicodedata.normalize("NFKD", text or "")
-    return "".join(c for c in text if not unicodedata.combining(c)).strip().casefold()
+    try:
+        return _load_credentials()
+    except RuntimeError as exc:
+        sys.exit(str(exc))
 
 
 def find_stage(client, stage_name, pipeline_id=None):
