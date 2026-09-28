@@ -22,9 +22,11 @@ def load_credentials(env_file=None):
     """Lee KOMMO_SUBDOMAIN y KOMMO_TOKEN (también en minúsculas).
 
     Orden: variables de entorno, luego el .env indicado en KOMMO_ENV_FILE,
-    el .env junto a este archivo y, por último, el .env del directorio actual.
+    el .env (o .env.txt) junto a este archivo y, por último, el .env del directorio actual.
     """
-    candidates = [env_file, os.getenv("KOMMO_ENV_FILE"), Path(__file__).resolve().parent / ".env", Path.cwd() / ".env"]
+    here = Path(__file__).resolve().parent
+    # ".env.txt" cubre el caso de Windows, donde el Bloc de notas agrega ".txt" al guardar.
+    candidates = [env_file, os.getenv("KOMMO_ENV_FILE"), here / ".env", here / ".env.txt", Path.cwd() / ".env"]
     values = {}
     for path in candidates:
         if path and Path(path).is_file():
